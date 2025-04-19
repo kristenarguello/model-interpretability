@@ -1,14 +1,21 @@
 # %%
+import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
-from ucimlrepo import fetch_ucirepo
 
+# import seaborn as sns
+import shap
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
+from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    classification_report,
+    confusion_matrix,
+)
+from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_split
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
+from ucimlrepo import fetch_ucirepo
 
 # %%
 
@@ -264,9 +271,6 @@ for label, split in zip(["Train", "Test"], [y_train, y_test]):
 # %%
 ## KNN
 
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.model_selection import GridSearchCV
 
 # Create a pipeline with preprocessing and KNN classifier
 knn_pipeline = Pipeline(
@@ -304,7 +308,6 @@ best_knn_model = knn_grid_search.best_estimator_
 # Get the best parameters
 
 # use cross validation
-from sklearn.model_selection import cross_val_score
 
 
 # Perform cross-validation to get scores
@@ -323,17 +326,27 @@ print(f"Mean cross-validation score: {cv_scores.mean()}")
 
 # %%
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import (
-    confusion_matrix,
-    ConfusionMatrixDisplay,
-    classification_report,
-)
-import shap
 
+# Create an inverse mapping to convert numeric predictions back to string labels.
+inverse_mapping = {
+    -1: "Insufficient_Weight",
+    0: "Normal_Weight",
+    1: "Overweight_Level_I",
+    2: "Overweight_Level_II",
+    3: "Obesity_Type_I",
+    4: "Obesity_Type_II",
+    5: "Obesity_Type_III",
+}
 
-y_values = [
+# Convert y_test to string labels
+y_test_str = y_test["obesity_level"].map(inverse_mapping)
+
+# Make predictions on the test set
+y_pred = best_knn_model.predict(X_test)
+y_pred_str = pd.Series(y_pred).map(inverse_mapping)
+
+# Define the string labels for display
+y_labels = [
     "Insufficient_Weight",
     "Normal_Weight",
     "Overweight_Level_I",
@@ -343,19 +356,16 @@ y_values = [
     "Obesity_Type_III",
 ]
 
-# Make predictions on the test set
-y_pred = best_knn_model.predict(X_test)
-
 # === Confusion Matrix ===
-cm = confusion_matrix(y_test, y_pred, labels=y_values)
-disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=y_values)
+cm = confusion_matrix(y_test_str, y_pred_str, labels=y_labels)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=y_labels)
 disp.plot(cmap="Blues", xticks_rotation=45)
 plt.title("Confusion Matrix")
 plt.show()
 
 # Classification report for precision/recall/F1 per class
 print("\nClassification Report:")
-print(classification_report(y_test, y_pred))
+print(classification_report(y_test_str, y_pred_str))
 
 # === SHAP EXPLAINER ===
 # Extract the model and the preprocessed data
