@@ -3,3 +3,4 @@ pandas
 rich
 matplotlib
 seaborn
+scikit-learn

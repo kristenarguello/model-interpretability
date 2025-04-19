@@ -1,7 +1,7 @@
 # %%
 import pandas as pd
-from ucimlrepo import fetch_ucirepo
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
+from ucimlrepo import fetch_ucirepo
 
 # %%
 
@@ -193,9 +193,50 @@ ordinal_encoder = OrdinalEncoder(
 print("\nPreprocessing completed. Dataset is ready for modeling or further steps.")
 
 # %%
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+
+# %%
+numerical_imputer = SimpleImputer(strategy="mean")
+categorical_imputer = SimpleImputer(strategy="most_frequent")
+
+# Pipeline for ordinal features
+ordinal_pipeline = Pipeline(
+    steps=[("imputer", categorical_imputer), ("ordinal_encoder", ordinal_encoder)]
+)
+
+# Pipeline for nominal features
+nominal_pipeline = Pipeline(
+    steps=[("imputer", categorical_imputer), ("onehot_encoder", nominal_encoder)]
+)
+
+# Pipeline for ratio (continuous) numerical features
+ratio_pipeline = Pipeline(
+    steps=[("imputer", numerical_imputer), ("scaler", StandardScaler())]
+)
+
+# Pipeline for discrete numerical features (e.g., age)
+discrete_pipeline = Pipeline(
+    steps=[("imputer", numerical_imputer), ("scaler", StandardScaler())]
+)
+
+# Combine all with ColumnTransformer
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("ord", ordinal_pipeline, ordinal_cat),
+        ("nom", nominal_pipeline, nominal_cat),
+        ("rat", ratio_pipeline, ratio_cat),
+        ("dis", discrete_pipeline, discrete_cat),
+    ]
+)
+
+# %%
+
 
 # TODO
-# set up pipeline with encoders and scalers for numericals
 # add gridsearch for parameters?
 # train with each model
 # add expaliner
