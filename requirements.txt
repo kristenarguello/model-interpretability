@@ -4,3 +4,4 @@ rich
 matplotlib
 seaborn
 scikit-learn
+shap

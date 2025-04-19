@@ -3,6 +3,13 @@ import pandas as pd
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from ucimlrepo import fetch_ucirepo
 
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+
+
 # %%
 
 # Load dataset
@@ -167,6 +174,8 @@ obesity_level_mapping = {
     "Obesity_Type_II": 4,
     "Obesity_Type_III": 5,
 }
+
+
 # encoded by hand
 y["obesity_level"] = y["obesity_level"].map(obesity_level_mapping)
 print("Mapped target labels to ordinal values.")
@@ -174,8 +183,14 @@ print("Mapped target labels to ordinal values.")
 # get all possible values for each ordinal category
 categories_values = []
 for col in ordinal_cat:
-    # TODO: need to reorder these values to respect the desired ordinal order
-    categories_values.append(X[col].cat.categories.tolist())
+    order = X[col].cat.categories.tolist()
+    try:
+        order = [int(i) for i in order]
+        order = sorted(set(order))
+    except ValueError:
+        order = sorted(set(order), reverse=True)
+    categories_values.append(order)
+    print(f"Gathered possible values for '{col}': {order}")
 
 print("Gathered all possible values for ordinal categories")
 
@@ -192,16 +207,14 @@ ordinal_encoder = OrdinalEncoder(
 # %%
 print("\nPreprocessing completed. Dataset is ready for modeling or further steps.")
 
-# %%
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-
 
 # %%
+
+# even though we made the analysis before and there were no null values
+# better safe than sorry
 numerical_imputer = SimpleImputer(strategy="mean")
 categorical_imputer = SimpleImputer(strategy="most_frequent")
+
 
 # Pipeline for ordinal features
 ordinal_pipeline = Pipeline(
@@ -223,7 +236,7 @@ discrete_pipeline = Pipeline(
     steps=[("imputer", numerical_imputer), ("scaler", StandardScaler())]
 )
 
-# Combine all with ColumnTransformer
+# combine all with ColumnTransformer
 preprocessor = ColumnTransformer(
     transformers=[
         ("ord", ordinal_pipeline, ordinal_cat),
@@ -236,6 +249,131 @@ preprocessor = ColumnTransformer(
 # %%
 
 
+# First split: 60% train, 40% temp (validation + test)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, stratify=y, random_state=42
+)
+# Confirm the shapes
+print("Train set:", X_train.shape, y_train.shape)
+print("Test set:", X_test.shape, y_test.shape)
+
+# Optionally check target distribution in each
+for label, split in zip(["Train", "Test"], [y_train, y_test]):
+    print(f"\n{label} target distribution:")
+    print(split["obesity_level"].value_counts(normalize=True).round(3))
+# %%
+## KNN
+
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import GridSearchCV
+
+# Create a pipeline with preprocessing and KNN classifier
+knn_pipeline = Pipeline(
+    steps=[("preprocessor", preprocessor), ("classifier", KNeighborsClassifier())]
+)
+# make grid search
+
+knn_grid = {
+    "classifier__n_neighbors": [3, 5, 7, 9],
+    "classifier__weights": ["uniform", "distance"],
+    "classifier__metric": ["euclidean", "manhattan"],
+}
+
+
+# since classes are distributed:
+# f1_macro =
+# Classes are balanced and you want equal treatment per class
+
+
+# Create a GridSearchCV object
+knn_grid_search = GridSearchCV(
+    knn_pipeline,
+    param_grid=knn_grid,
+    scoring="f1_macro",
+    cv=10,  # simulate LOOCV
+    verbose=1,
+    n_jobs=-1,
+)
+
+knn_grid_search.fit(X_train, y_train.values.ravel())
+print("Best parameters:", knn_grid_search.best_params_)
+print("Best cross-validated training score (F1 macro):", knn_grid_search.best_score_)
+
+best_knn_model = knn_grid_search.best_estimator_
+# Get the best parameters
+
+# use cross validation
+from sklearn.model_selection import cross_val_score
+
+
+# Perform cross-validation to get scores
+cv_scores = cross_val_score(
+    best_knn_model,
+    X_test,
+    y_test.values.ravel(),
+    cv=10,  # 10 fold to simualte LOOCV
+    scoring="f1_macro",
+    n_jobs=-1,
+)
+
+# Print cross-validation results
+print(f"Cross-validation F1 scores: {cv_scores}")
+print(f"Mean cross-validation score: {cv_scores.mean()}")
+
+# %%
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import (
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+    classification_report,
+)
+import shap
+
+
+y_values = [
+    "Insufficient_Weight",
+    "Normal_Weight",
+    "Overweight_Level_I",
+    "Overweight_Level_II",
+    "Obesity_Type_I",
+    "Obesity_Type_II",
+    "Obesity_Type_III",
+]
+
+# Make predictions on the test set
+y_pred = best_knn_model.predict(X_test)
+
+# === Confusion Matrix ===
+cm = confusion_matrix(y_test, y_pred, labels=y_values)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=y_values)
+disp.plot(cmap="Blues", xticks_rotation=45)
+plt.title("Confusion Matrix")
+plt.show()
+
+# Classification report for precision/recall/F1 per class
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+
+# === SHAP EXPLAINER ===
+# Extract the model and the preprocessed data
+X_test_transformed = best_knn_model.named_steps["preprocessor"].transform(X_test)
+model_knn = best_knn_model.named_steps["classifier"]
+
+# SHAP only supports KNN via KernelExplainer
+# Use 100 samples for performance reasons
+X_sample = shap.sample(X_test_transformed, 100, random_state=42)
+
+explainer = shap.KernelExplainer(model_knn.predict_proba, X_sample)
+shap_values = explainer.shap_values(X_sample)
+
+# Plot SHAP summary
+shap.summary_plot(shap_values, X_sample, show=True)
+
+
+# %%
 # TODO
 # add gridsearch for parameters?
 # train with each model
