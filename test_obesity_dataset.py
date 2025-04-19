@@ -1,5 +1,12 @@
+# dataset escolhido:
+# https://archive.ics.uci.edu/dataset/544/estimation+of+obesity+levels+based+on+eating+habits+and+physical+condition
+
 # %%
+
 from ucimlrepo import fetch_ucirepo
+from rich import print
+import pandas as pd
+import matplotlib.pyplot as plt
 
 # fetch dataset
 estimation_of_obesity_levels_based_on_eating_habits_and_physical_condition = (
@@ -19,8 +26,6 @@ y = (
     estimation_of_obesity_levels_based_on_eating_habits_and_physical_condition.data.targets
 )
 
-from rich import print
-import pandas as pd
 
 # metadata
 print(
@@ -60,7 +65,6 @@ print("\nPercentage distribution:")
 print(percentage_distribution.round(2))
 
 # Optional: Visual representation
-import matplotlib.pyplot as plt
 
 plt.figure(figsize=(12, 6))
 percentage_distribution.plot(kind="bar")
