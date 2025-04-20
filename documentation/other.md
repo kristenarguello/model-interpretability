@@ -1,0 +1,3 @@
+- sla, falar sobre qualquer outra coisa aqui
+- tem o report com varias metricas tambem pra cada modelo, da pra falar sobre aqui
+- mostrar que tem metricas melhores para multiclasse (matriz de confusao melhor, por isso secao unica sobre)

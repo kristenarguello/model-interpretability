@@ -1,0 +1,3 @@
+falar e colocar cada matriz aqui e mostrar a diferenca de resultados dos modelos
+falar sobre a tendencia de errar o peso normal de todos os modelos....
+    apontar nas matrizes
