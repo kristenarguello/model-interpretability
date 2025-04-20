@@ -27,6 +27,8 @@ if dataset is None:
 
 # Split features and target
 X = dataset.data.features
+# Remove weight column from features
+X = X.drop(columns=["Weight"])
 y = dataset.data.targets
 
 # %%
@@ -115,7 +117,7 @@ print("Rounded 'age' to 0 decimal places and converted to float.")
 
 # Round continuous variables (height, weight) to 2 decimal points
 # Reduces noise and creates more consistent buckets
-for col in ["height", "weight"]:
+for col in ["height"]:
     X[col] = X[col].round(2).astype(float)
     print(f"Rounded '{col}' to 2 decimal points and converted to float.")
 
@@ -164,7 +166,7 @@ nominal_cat = [
 ]
 
 # Continuous numerical features
-ratio_cat = ["number_of_main_meals", "height", "weight"]
+ratio_cat = ["number_of_main_meals", "height"]
 
 # Discrete numeric features
 discrete_cat = ["age"]
@@ -288,8 +290,6 @@ knn_grid = {
 # since classes are distributed:
 # f1_macro =
 # Classes are balanced and you want equal treatment per class
-
-
 # Create a GridSearchCV object
 knn_grid_search = GridSearchCV(
     knn_pipeline,
@@ -363,6 +363,7 @@ plt.show()
 # Classification report for precision/recall/F1 per class
 print("\nClassification Report:")
 print(classification_report(y_test_str, y_pred_str))
+# %%
 
 # === SHAP EXPLAINER ===
 # Extract the model and the preprocessed data
@@ -378,19 +379,21 @@ shap_values = explainer.shap_values(X_sample)
 
 # Plot SHAP summary
 shap.summary_plot(shap_values, X_sample, show=True)
+# need to improve this and add feature names and classes names
 
 ############################# End of KNN
 # %%
 ############################### Decision Tree
 from sklearn.tree import DecisionTreeClassifier
+
 # Create a pipeline with preprocessing and Decision Tree classifier
 dt_pipeline = Pipeline(
     steps=[("preprocessor", preprocessor), ("classifier", DecisionTreeClassifier())]
-) 
+)
 
 # make grid search
 dt_grid = {
-    "classifier__criterion": ["gini", "entropy", "log_loss", "squared_error"],
+    "classifier__criterion": ["gini", "entropy", "log_loss"],
     "classifier__splitter": ["best"],
     "classifier__max_depth": [None, 3, 5, 7, 9, 15],
     "classifier__min_samples_split": [2, 5, 10],
@@ -400,13 +403,13 @@ dt_grid = {
 dt_grid_search = GridSearchCV(
     dt_pipeline,
     param_grid=dt_grid,
-    scoring=["f1_macro"],
+    scoring="f1_macro",
     cv=10,  # simulate LOOCV
     verbose=1,
     n_jobs=-1,
 )
 
-dt_grid_search.fit(X_train, y_train.values.ravel())
+dt_grid_search.fit(X_train, y_train)
 print("Best parameters:", dt_grid_search.best_params_)
 print("Best cross-validated training score (F1 macro):", dt_grid_search.best_score_)
 best_dt_model = dt_grid_search.best_estimator_
@@ -424,7 +427,7 @@ cv_scores = cross_val_score(
 # Print cross-validation results
 print(f"Cross-validation F1 scores: {cv_scores}")
 print(f"Mean cross-validation score: {cv_scores.mean()}")
-
+# %%
 # Create an inverse mapping to convert numeric predictions back to string labels.
 inverse_mapping = {
     -1: "Insufficient_Weight",
@@ -461,13 +464,13 @@ plt.show()
 print("\nClassification Report:")
 print(classification_report(y_test_str, y_pred_str))
 
-
+# %%
 # === SHAP EXPLAINER ===
 
 # Extract the model and the preprocessed data
 X_test_transformed = best_dt_model.named_steps["preprocessor"].transform(X_test)
 model_dt = best_dt_model.named_steps["classifier"]
- 
+
 # SHAP explainer for Decision Trees
 # For tree models, we can use TreeExplainer which is more efficient
 explainer = shap.TreeExplainer(model_dt)
@@ -475,10 +478,31 @@ shap_values = explainer.shap_values(X_test_transformed)
 
 # Plot SHAP summary
 plt.figure(figsize=(12, 8))
-shap.summary_plot(shap_values, X_test_transformed, plot_type="bar", show=False)
+# Get feature names after preprocessing
+feature_names = []
+# Add ordinal feature names (keeping original names)
+feature_names.extend(ordinal_cat)
+# Add one-hot encoded feature names
+for col in nominal_cat:
+    unique_values = X[col].unique()
+    for val in unique_values:
+        feature_names.append(f"{col}_{val}")
+# Add ratio and discrete feature names
+feature_names.extend(ratio_cat)
+feature_names.extend(discrete_cat)
+
+# Now use these feature names in your plot
+shap.summary_plot(
+    shap_values,
+    X_test_transformed,
+    plot_type="bar",
+    feature_names=feature_names,
+    show=False,
+)
 plt.title("Feature Importance (SHAP Values) - Decision Tree")
 plt.tight_layout()
 plt.show()
+# %%
 
 # Plot detailed SHAP summary showing direction of impact
 plt.figure(figsize=(12, 10))
@@ -490,8 +514,13 @@ plt.show()
 # See the decision path for a few examples
 for idx in range(3):
     plt.figure(figsize=(12, 5))
-    shap.decision_plot(explainer.expected_value, shap_values[idx], X_test_transformed[idx], 
-                       feature_display_range=slice(-1, -10, -1))
+    shap.decision_plot(
+        explainer.expected_value,
+        shap_values[idx],
+        X_test_transformed[idx],
+        feature_display_range=slice(-1, -10, -1),
+        feature_names=X_test.columns,
+    )
     plt.title(f"Decision Path for Sample {idx}")
     plt.tight_layout()
     plt.show()
@@ -503,4 +532,45 @@ for idx in range(3):
 # train with each model
 # add expaliner
 
+# %%
+
+
+# naive bayes with grid search just like before
+from sklearn.naive_bayes import GaussianNB
+
+# Create a pipeline with preprocessing and Naive Bayes classifier
+nb_pipeline = Pipeline(
+    steps=[("preprocessor", preprocessor), ("classifier", GaussianNB())]
+)
+# make grid search
+nb_grid = {
+    "classifier__var_smoothing": list(range(1, 10)) + [0.1, 0.01, 0.001],
+}
+# Create a GridSearchCV object
+nb_grid_search = GridSearchCV(
+    nb_pipeline,
+    param_grid=nb_grid,
+    scoring="f1_macro",
+    cv=10,  # simulate LOOCV
+    verbose=1,
+    n_jobs=-1,
+)
+nb_grid_search.fit(X_train, y_train.values.ravel())
+print("Best parameters:", nb_grid_search.best_params_)
+print("Best cross-validated training score (F1 macro):", nb_grid_search.best_score_)
+best_nb_model = nb_grid_search.best_estimator_
+# Get the best parameters
+# use cross validation
+# Perform cross-validation to get scores
+cv_scores = cross_val_score(
+    best_nb_model,
+    X_test,
+    y_test.values.ravel(),
+    cv=10,  # 10 fold to simualte LOOCV
+    scoring="f1_macro",
+    n_jobs=-1,
+)
+# Print cross-validation results
+print(f"Cross-validation F1 scores: {cv_scores}")
+print(f"Mean cross-validation score: {cv_scores.mean()}")
 # %%
