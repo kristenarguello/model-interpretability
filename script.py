@@ -1,9 +1,11 @@
 # %%
+# === IMPORTS ===
+# Standard libraries
 import matplotlib.pyplot as plt
 import pandas as pd
-
-# import seaborn as sns
 import shap
+
+# Sklearn imports for preprocessing, modeling, evaluation
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import (
@@ -15,33 +17,27 @@ from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_sp
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
 
-# %%
+# UCI dataset loader
 from ucimlrepo import fetch_ucirepo
 
-# ssl._create_default_https_context = ssl._create_unverified_context
+# %%
+# === LOAD DATASET ===
+print("Fetching dataset...")
+dataset = fetch_ucirepo(id=544)
+if dataset is None:
+    print("Dataset not found")
+    exit()
 
-# Load dataset
-# dataset = fetch_ucirepo(id=544)
-# if dataset is None:
-#     print("Dataset not found")
-#     exit()
-
-
-# # Split features and target
-# X = dataset.data.features
-# # Remove weight column from features
-# X = X.drop(columns=["Weight"])
-# y = dataset.data.targets
-
-with open("data/X.csv", "r") as f:
-    X = pd.read_csv(f)
-with open("data/y.csv", "r") as f:
-    y = pd.read_csv(f)
-
+# Split features and target
+X = dataset.data.features
+y = dataset.data.targets
 
 # %%
-# Rename columns to more descriptive and Pythonic names
+# === RENAME COLUMNS FOR CLARITY ===
+print("Renaming columns...")
 feature_mapping = {
     "Gender": "gender",
     "Age": "age",
@@ -63,108 +59,51 @@ feature_mapping = {
 target_mapping = {
     "NObeyesdad": "obesity_level",
 }
-
 X = X.rename(columns=feature_mapping)
 y = y.rename(columns=target_mapping)
 
-print("Renamed feature and target columns.")
-
 # %%
-# Check for missing values
-print("Checking for NaN/null values:")
-print("Features (X):")
+# === CHECK MISSING VALUES ===
+print("Checking for missing values...")
 print(X.isna().sum())
-print(f"Total missing in X: {X.isna().sum().sum()}")
-
-print("\nTarget (y):")
 print(y.isna().sum())
-print(f"Total missing in y: {y.isna().sum().sum()}")
-
-# Basic dataset information
-print("\nDataset shape:")
-print(f"X: {X.shape}")
-print(f"y: {y.shape}")
-print("\nFeature columns:", X.columns.tolist())
-print("Target column:", y.columns.tolist())
 
 # %%
-# Target class distribution
-print("\nTarget class distribution:")
-print(
-    y["obesity_level"].value_counts(normalize=True).mul(100).round(2).astype(str) + "%"
-)
+# === DATA TYPE CLEANING AND ROUNDING ===
+print("Cleaning data types and rounding values...")
+X["age"] = X["age"].round().astype(float)
+X["number_of_main_meals"] = X["number_of_main_meals"].round().astype(float)
+for col in ["height", "weight"]:
+    X[col] = X[col].round(2).astype(float)
 
-# %%
-# Check distributions of categorical features
+# Identify categorical and numerical columns
 categorical_columns = X.select_dtypes(include=["object", "category"]).columns
-print("\nCategorical features in X:")
-for col in categorical_columns:
-    print(f"\n{col} distribution:")
-    print(X[col].value_counts(normalize=True).mul(100).round(2).astype(str) + "%")
-
-# Check distributions of numerical features
 numerical_columns = X.select_dtypes(include=["int", "float"]).columns
 numerical_cat_columns = []
 
-print("\nNumerical features in X:")
+# Detect which numerical features are likely categorical
 for col in numerical_columns:
-    unique_values = X[col].nunique()
-    if col in ["age", "height", "weight", "number_of_main_meals"]:
-        # These are clearly continuous variables, so no need to treat as categorical
-        print(f"{col} is a numerical column.")
-    else:
-        # Variables with few unique numeric values might represent categorical choices
+    if col not in ["age", "height", "weight", "number_of_main_meals"]:
         numerical_cat_columns.append(col)
-        print(f"\n{col} distribution ({unique_values} unique values):")
-        print(X[col].value_counts(normalize=True).mul(100).round(2).astype(str) + "%")
 
-# %%
-# Preprocessing step: round age to nearest integer and convert to float
-# Helps model generalize better by focusing on completed years rather than decimal values
-X["age"] = X["age"].round().astype(float)
-print("Rounded 'age' to 0 decimal places and converted to float.")
-
-# Round continuous variables (height, weight) to 2 decimal points
-# Reduces noise and creates more consistent buckets
-for col in ["height"]:
-    X[col] = X[col].round(2).astype(float)
-    print(f"Rounded '{col}' to 2 decimal points and converted to float.")
-
-# %%
-
-# Round number_of_main_meals to nearest integer
-# This is a discrete variable, so rounding to nearest integer makes sense
-# Helps model generalize better by focusing on completed meals rather than decimal values
-X["number_of_main_meals"] = X["number_of_main_meals"].round().astype(float)
-
-# %%
-# Numerical features that are actually categorical (like Likert scales)
-# First round to nearest class, then convert to category dtype
+# Convert numerical categorical features
 for col in numerical_cat_columns:
     X[col] = pd.Categorical(X[col].round().astype(int))
-    print(f"Converted '{col}' to category dtype (rounded integer values).")
 
-# %%
-# Convert all object-typed columns to category dtype
-# Helps reduce memory usage and ensures consistency for categorical encoding
+# Convert object columns to category
 for col in categorical_columns:
     X[col] = X[col].astype("category")
-    print(f"Converted '{col}' to category dtype.")
 
 # %%
-# Categorizing features for modeling
-
-# Ordinal categories (order matters)
+# === CATEGORIZE FEATURES ===
 ordinal_cat = [
-    "freqof_vegetables",  # frequency of vegetable consumption
-    "food_between_meals",  # snacking habits
-    "water_intake",  # daily water consumption
-    "freq_physical_activity",  # frequency of physical activity
-    "time_using_technology",  # sedentary time
-    "alcohol_consumption",  # frequency of alcohol use
+    "freqof_vegetables",
+    "food_between_meals",
+    "water_intake",
+    "freq_physical_activity",
+    "time_using_technology",
+    "alcohol_consumption",
 ]
-
-# Nominal categories (no inherent order)
 nominal_cat = [
     "gender",
     "family_history_overweight",
@@ -173,18 +112,13 @@ nominal_cat = [
     "calories_monitoring",
     "transportation_type",
 ]
-
-# Continuous numerical features
 ratio_cat = ["number_of_main_meals", "height"]
-
-# Discrete numeric features
 discrete_cat = ["age"]
 
 # %%
-# Target label is ordinal — represents increasing severity of obesity
-# Mapping used for ordinal encoding
+# === MAP TARGET LABELS TO INTEGERS ===
 obesity_level_mapping = {
-    "Insufficient_Weight": -1,  # Less than normal weight
+    "Insufficient_Weight": -1,
     "Normal_Weight": 0,
     "Overweight_Level_I": 1,
     "Overweight_Level_II": 2,
@@ -192,69 +126,44 @@ obesity_level_mapping = {
     "Obesity_Type_II": 4,
     "Obesity_Type_III": 5,
 }
-
-
-# encoded by hand
 y["obesity_level"] = y["obesity_level"].map(obesity_level_mapping)
-print("Mapped target labels to ordinal values.")
+
 # %%
-# get all possible values for each ordinal category
+# === GATHER ORDERED CATEGORIES FOR ENCODING ===
 categories_values = []
 for col in ordinal_cat:
     order = X[col].cat.categories.tolist()
     try:
-        order = [int(i) for i in order]
-        order = sorted(set(order))
+        order = sorted(set([int(i) for i in order]))
     except ValueError:
         order = sorted(set(order), reverse=True)
     categories_values.append(order)
-    print(f"Gathered possible values for '{col}': {order}")
-
-print("Gathered all possible values for ordinal categories")
 
 # %%
+# === BUILD PREPROCESSING PIPELINES ===
+print("Setting up preprocessing pipelines...")
 
-# setup encoders for categoricals
-# use one hot encoder for nominal
-nominal_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
-# ordinal encoder for ordinal
-ordinal_encoder = OrdinalEncoder(
-    categories=categories_values, handle_unknown="use_encoded_value", unknown_value=-1
-)
-
-# %%
-print("\nPreprocessing completed. Dataset is ready for modeling or further steps.")
-
-
-# %%
-
-# even though we made the analysis before and there were no null values
-# better safe than sorry
 numerical_imputer = SimpleImputer(strategy="mean")
 categorical_imputer = SimpleImputer(strategy="most_frequent")
 
+ordinal_encoder = OrdinalEncoder(
+    categories=categories_values, handle_unknown="use_encoded_value", unknown_value=-1
+)
+nominal_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
 
-# Pipeline for ordinal features
 ordinal_pipeline = Pipeline(
     steps=[("imputer", categorical_imputer), ("ordinal_encoder", ordinal_encoder)]
 )
-
-# Pipeline for nominal features
 nominal_pipeline = Pipeline(
     steps=[("imputer", categorical_imputer), ("onehot_encoder", nominal_encoder)]
 )
-
-# Pipeline for ratio (continuous) numerical features
 ratio_pipeline = Pipeline(
     steps=[("imputer", numerical_imputer), ("scaler", StandardScaler())]
 )
-
-# Pipeline for discrete numerical features (e.g., age)
 discrete_pipeline = Pipeline(
     steps=[("imputer", numerical_imputer), ("scaler", StandardScaler())]
 )
 
-# combine all with ColumnTransformer
 preprocessor = ColumnTransformer(
     transformers=[
         ("ord", ordinal_pipeline, ordinal_cat),
@@ -265,345 +174,200 @@ preprocessor = ColumnTransformer(
 )
 
 # %%
-
-
-# First split: 60% train, 40% temp (validation + test)
+# === SPLIT DATASET ===
+print("Splitting data into training and testing sets...")
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, stratify=y, random_state=42
 )
-# Confirm the shapes
-print("Train set:", X_train.shape, y_train.shape)
-print("Test set:", X_test.shape, y_test.shape)
 
-# Optionally check target distribution in each
-for label, split in zip(["Train", "Test"], [y_train, y_test]):
-    print(f"\n{label} target distribution:")
-    print(split["obesity_level"].value_counts(normalize=True).round(3))
 # %%
-########################### KNN
+# === KNN CLASSIFIER ===
+print("Training KNN classifier...")
 
-
-# Create a pipeline with preprocessing and KNN classifier
 knn_pipeline = Pipeline(
     steps=[("preprocessor", preprocessor), ("classifier", KNeighborsClassifier())]
 )
-# make grid search
-
 knn_grid = {
-    "classifier__n_neighbors": [3, 5, 7, 9],
+    "classifier__n_neighbors": list(range(3, 21, 2)),
     "classifier__weights": ["uniform", "distance"],
-    "classifier__metric": ["euclidean", "manhattan"],
+    "classifier__metric": ["euclidean", "manhattan", "minkowski"],
 }
-
-
-# since classes are distributed:
-# f1_macro =
-# Classes are balanced and you want equal treatment per class
-# Create a GridSearchCV object
 knn_grid_search = GridSearchCV(
-    knn_pipeline,
-    param_grid=knn_grid,
-    scoring="f1_macro",
-    cv=10,  # simulate LOOCV
-    verbose=1,
-    n_jobs=-1,
+    knn_pipeline, knn_grid, scoring="f1_macro", cv=10, verbose=1, n_jobs=-1
 )
-
 knn_grid_search.fit(X_train, y_train.values.ravel())
-print("Best parameters:", knn_grid_search.best_params_)
-print("Best cross-validated training score (F1 macro):", knn_grid_search.best_score_)
 
 best_knn_model = knn_grid_search.best_estimator_
-# Get the best parameters
-# use cross validation
-# Perform cross-validation to get scores
+print("KNN training complete. Best parameters:", knn_grid_search.best_params_)
+
 cv_scores = cross_val_score(
-    best_knn_model,
-    X_test,
-    y_test.values.ravel(),
-    cv=10,  # 10 fold to simualte LOOCV
-    scoring="f1_macro",
-    n_jobs=-1,
+    best_knn_model, X_test, y_test.values.ravel(), cv=10, scoring="f1_macro", n_jobs=-1
 )
+print(f"KNN Mean F1 score: {cv_scores.mean()}")
 
-# Print cross-validation results
-print(f"Cross-validation F1 scores: {cv_scores}")
-print(f"Mean cross-validation score: {cv_scores.mean()}")
-
-# %%
-
-
-# Create an inverse mapping to convert numeric predictions back to string labels.
-inverse_mapping = {
-    -1: "Insufficient_Weight",
-    0: "Normal_Weight",
-    1: "Overweight_Level_I",
-    2: "Overweight_Level_II",
-    3: "Obesity_Type_I",
-    4: "Obesity_Type_II",
-    5: "Obesity_Type_III",
-}
-
-# Convert y_test to string labels
+# Confusion matrix and report
+inverse_mapping = {v: k for k, v in obesity_level_mapping.items()}
 y_test_str = y_test["obesity_level"].map(inverse_mapping)
-
-# Make predictions on the test set
 y_pred = best_knn_model.predict(X_test)
 y_pred_str = pd.Series(y_pred).map(inverse_mapping)
 
-# Define the string labels for display
-y_labels = [
-    "Insufficient_Weight",
-    "Normal_Weight",
-    "Overweight_Level_I",
-    "Overweight_Level_II",
-    "Obesity_Type_I",
-    "Obesity_Type_II",
-    "Obesity_Type_III",
-]
-
-# === Confusion Matrix ===
+y_labels = list(obesity_level_mapping.keys())
 cm = confusion_matrix(y_test_str, y_pred_str, labels=y_labels)
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=y_labels)
 disp.plot(cmap="Blues", xticks_rotation=45)
-plt.title("Confusion Matrix")
-plt.show()
+plt.title("KNN - Confusion Matrix")
+plt.savefig("results/knn/confusion_matrix_knn.png", dpi=300, bbox_inches="tight")
 
-# Classification report for precision/recall/F1 per class
-print("\nClassification Report:")
-print(classification_report(y_test_str, y_pred_str))
-# %%
+with open("results/knn/classification_report_knn.txt", "w") as f:
+    f.write(str(classification_report(y_test_str, y_pred_str)))
 
-# === SHAP EXPLAINER ===
-# Extract the model and the preprocessed data
+# SHAP explainability
+print("Generating SHAP explanation for KNN...")
 X_test_transformed = best_knn_model.named_steps["preprocessor"].transform(X_test)
 model_knn = best_knn_model.named_steps["classifier"]
-
-# SHAP only supports KNN via KernelExplainer
-# Use 100 samples for performance reasons
 X_sample = shap.sample(X_test_transformed, 100, random_state=42)
-
 explainer = shap.KernelExplainer(model_knn.predict_proba, X_sample)
 shap_values = explainer.shap_values(X_sample)
-
-# Plot SHAP summary
-# Add feature names from the pipeline
 feature_names = best_knn_model.named_steps["preprocessor"].get_feature_names_out()
-shap.summary_plot(shap_values, X_sample, feature_names=feature_names, show=True)
+plt.figure(figsize=(12, 8))
+shap.summary_plot(
+    shap_values,
+    X_sample,
+    plot_type="bar",
+    feature_names=feature_names,
+    class_names=y_labels,
+    show=False,
+)
+plt.title("SHAP - KNN")
+plt.tight_layout()
+plt.savefig("results/knn/shap_summary_knn.png", dpi=300, bbox_inches="tight")
 
-############################# End of KNN
 # %%
-############################### Decision Tree
-from sklearn.tree import DecisionTreeClassifier
+# === DECISION TREE CLASSIFIER ===
+print("Training Decision Tree classifier...")
 
-# Create a pipeline with preprocessing and Decision Tree classifier
 dt_pipeline = Pipeline(
     steps=[("preprocessor", preprocessor), ("classifier", DecisionTreeClassifier())]
 )
-
-# make grid search
 dt_grid = {
     "classifier__criterion": ["gini", "entropy", "log_loss"],
     "classifier__splitter": ["best"],
     "classifier__max_depth": [None, 3, 5, 7, 9, 15],
     "classifier__min_samples_split": [2, 5, 10],
 }
-
-# Create a GridSearchCV object
 dt_grid_search = GridSearchCV(
-    dt_pipeline,
-    param_grid=dt_grid,
-    scoring="f1_macro",
-    cv=10,  # simulate LOOCV
-    verbose=1,
-    n_jobs=-1,
+    dt_pipeline, dt_grid, scoring="f1_macro", cv=10, verbose=1, n_jobs=-1
 )
-
 dt_grid_search.fit(X_train, y_train)
-print("Best parameters:", dt_grid_search.best_params_)
-print("Best cross-validated training score (F1 macro):", dt_grid_search.best_score_)
 best_dt_model = dt_grid_search.best_estimator_
-# Get the best parameters
-# use cross validation
-# Perform cross-validation to get scores
+print("Decision Tree training complete. Best parameters:", dt_grid_search.best_params_)
 
-dt_cv_scores = cross_val_score(
-    best_dt_model,
-    X_test,
-    y_test.values.ravel(),
-    cv=10,  # 10 fold to simualte LOOCV
-    scoring="f1_macro",
-    n_jobs=-1,
+cv_scores = cross_val_score(
+    best_dt_model, X_test, y_test.values.ravel(), cv=10, scoring="f1_macro", n_jobs=-1
 )
-# Print cross-validation results
-print(f"Cross-validation F1 scores: {dt_cv_scores}")
-print(f"Mean cross-validation score: {dt_cv_scores.mean()}")
+print(f"Decision Tree Mean F1 score: {cv_scores.mean()}")
 
-# Previsões e métricas
+# Evaluation
 y_pred_dt = best_dt_model.predict(X_test)
 y_pred_dt_str = pd.Series(y_pred_dt).map(inverse_mapping)
 
 cm_dt = confusion_matrix(y_test_str, y_pred_dt_str, labels=y_labels)
 disp_dt = ConfusionMatrixDisplay(confusion_matrix=cm_dt, display_labels=y_labels)
 disp_dt.plot(cmap="Oranges", xticks_rotation=45)
-plt.title("Confusion Matrix - Decision Tree")
-plt.show()
+plt.title("Decision Tree - Confusion Matrix")
+plt.savefig(
+    "results/decision_tree/confusion_matrix_decision_tree.png",
+    dpi=300,
+    bbox_inches="tight",
+)
 
-print("\nClassification Report - Decision Tree:")
-print(classification_report(y_test_str, y_pred_dt_str))
-# %%
-# Create an inverse mapping to convert numeric predictions back to string labels.
-inverse_mapping = {
-    -1: "Insufficient_Weight",
-    0: "Normal_Weight",
-    1: "Overweight_Level_I",
-    2: "Overweight_Level_II",
-    3: "Obesity_Type_I",
-    4: "Obesity_Type_II",
-    5: "Obesity_Type_III",
-}
-# Convert y_test to string labels
-y_test_str = y_test["obesity_level"].map(inverse_mapping)
-# Make predictions on the test set
-y_pred = best_dt_model.predict(X_test)
-y_pred_str = pd.Series(y_pred).map(inverse_mapping)
-# Define the string labels for display
+with open("results/decision_tree/classification_report_decision_tree.txt", "w") as f:
+    f.write(str(classification_report(y_test_str, y_pred_dt_str)))
 
-y_labels = [
-    "Insufficient_Weight",
-    "Normal_Weight",
-    "Overweight_Level_I",
-    "Overweight_Level_II",
-    "Obesity_Type_I",
-    "Obesity_Type_II",
-    "Obesity_Type_III",
-]
-# === Confusion Matrix ===
-cm = confusion_matrix(y_test_str, y_pred_str, labels=y_labels)
-disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=y_labels)
-disp.plot(cmap="Blues", xticks_rotation=45)
-plt.title("Confusion Matrix")
-plt.show()
-# Classification report for precision/recall/F1 per class
-print("\nClassification Report:")
-print(classification_report(y_test_str, y_pred_str))
-
-# %%
-# === SHAP EXPLAINER ===
-
-# Extract the model and the preprocessed data
+# SHAP for Decision Tree
+print("Generating SHAP explanation for Decision Tree...")
 X_test_transformed = best_dt_model.named_steps["preprocessor"].transform(X_test)
 model_dt = best_dt_model.named_steps["classifier"]
-
-# SHAP explainer for Decision Trees
-# For tree models, we can use TreeExplainer which is more efficient
 explainer = shap.TreeExplainer(model_dt)
 shap_values = explainer.shap_values(X_test_transformed)
 
-# Plot SHAP summary
 plt.figure(figsize=(12, 8))
-# Get feature names after preprocessing
-feature_names = []
-# Add ordinal feature names (keeping original names)
-feature_names.extend(ordinal_cat)
-# Add one-hot encoded feature names
-for col in nominal_cat:
-    unique_values = X[col].unique()
-    for val in unique_values:
-        feature_names.append(f"{col}_{val}")
-# Add ratio and discrete feature names
-feature_names.extend(ratio_cat)
-feature_names.extend(discrete_cat)
-
-# Now use these feature names in your plot
 shap.summary_plot(
     shap_values,
     X_test_transformed,
     plot_type="bar",
     feature_names=feature_names,
+    class_names=y_labels,
     show=False,
 )
-plt.title("Feature Importance (SHAP Values) - Decision Tree")
+plt.title("SHAP - Decision Tree")
 plt.tight_layout()
-plt.show()
-# %%
-
-# Plot detailed SHAP summary showing direction of impact
-plt.figure(figsize=(12, 10))
-shap.summary_plot(shap_values, X_test_transformed, show=False)
-plt.title("SHAP Summary Plot - Decision Tree")
-plt.tight_layout()
-plt.show()
-
-# See the decision path for a few examples
-for idx in range(3):
-    plt.figure(figsize=(12, 5))
-    feature_names_transformed = best_dt_model.named_steps[
-        "preprocessor"
-    ].get_feature_names_out()
-    shap.decision_plot(
-        explainer.expected_value,
-        shap_values[0][idx],
-        X_test_transformed[idx],
-        feature_names=feature_names_transformed,
-    )
-    plt.title(f"Decision Path for Sample {idx}")
-    plt.tight_layout()
-    plt.show()
-
-
-# %%
-# Fixing pipelines to get a higher distribution and variance of class probabilities
-# This step improves model performance by making sure the categorical features
-# are encoded properly, considering the assumptions of the Naive Bayes model.
-
-# Pipeline for nominal features
-nominal_pipeline = Pipeline(
-    steps=[("imputer", categorical_imputer), ("ordinal_encoder", nominal_encoder)]
+plt.savefig(
+    "results/decision_tree/shap_summary_decision_tree_bar.png",
+    dpi=300,
+    bbox_inches="tight",
 )
 
-# setup encoders for categoricals
-nominal_encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
-
 # %%
+# === NAIVE BAYES CLASSIFIER ===
+print("Training Naive Bayes classifier...")
 
-
-# naive bayes with grid search just like before
-from sklearn.naive_bayes import GaussianNB
-
-# Create a pipeline with preprocessing and Naive Bayes classifier
 nb_pipeline = Pipeline(
     steps=[("preprocessor", preprocessor), ("classifier", GaussianNB())]
 )
-# make grid search
 nb_grid = {
     "classifier__var_smoothing": [0.001, 0.01, 0.1, 1.0, 10.0],
 }
-# Create a GridSearchCV object
 nb_grid_search = GridSearchCV(
-    nb_pipeline,
-    param_grid=nb_grid,
-    scoring="f1_macro",
-    cv=10,  # simulate LOOCV
-    verbose=1,
-    n_jobs=-1,
+    nb_pipeline, nb_grid, scoring="f1_macro", cv=10, verbose=1, n_jobs=-1
 )
 nb_grid_search.fit(X_train, y_train.values.ravel())
-print("Best parameters:", nb_grid_search.best_params_)
-print("Best cross-validated training score (F1 macro):", nb_grid_search.best_score_)
 best_nb_model = nb_grid_search.best_estimator_
-# Get the best parameters
-# use cross validation
-# Perform cross-validation to get scores
+print("Naive Bayes training complete. Best parameters:", nb_grid_search.best_params_)
+
 cv_scores = cross_val_score(
-    best_nb_model,
-    X_test,
-    y_test.values.ravel(),
-    cv=10,  # 10 fold to simualte LOOCV
-    scoring="f1_macro",
-    n_jobs=-1,
+    best_nb_model, X_test, y_test.values.ravel(), cv=10, scoring="f1_macro", n_jobs=-1
 )
-# Print cross-validation results
-print(f"Cross-validation F1 scores: {cv_scores}")
-print(f"Mean cross-validation score: {cv_scores.mean()}")
+print(f"Naive Bayes Mean F1 score: {cv_scores.mean()}")
+
+
+# Evaluation
+y_pred_nb = best_nb_model.predict(X_test)
+y_pred_nb_str = pd.Series(y_pred_nb).map(inverse_mapping)
+
+cm_nb = confusion_matrix(y_test_str, y_pred_nb_str, labels=y_labels)
+disp_nb = ConfusionMatrixDisplay(confusion_matrix=cm_nb, display_labels=y_labels)
+disp_nb.plot(cmap="Greens", xticks_rotation=45)
+plt.title("Naive Bayes - Confusion Matrix")
+plt.savefig(
+    "results/naive_bayes/confusion_matrix_naive_bayes.png", dpi=300, bbox_inches="tight"
+)
+
+with open("results/naive_bayes/classification_report_naive_bayes.txt", "w") as f:
+    f.write(str(classification_report(y_test_str, y_pred_nb_str)))
+
+# SHAP for Naive Bayes
+print("Generating SHAP explanation for Naive Bayes...")
+X_test_transformed = best_nb_model.named_steps["preprocessor"].transform(X_test)
+explainer = shap.KernelExplainer(
+    best_nb_model.named_steps["classifier"].predict_proba, X_test_transformed[:100]
+)
+shap_values = explainer.shap_values(X_test_transformed[:100])
+
+plt.figure(figsize=(12, 8))
+shap.summary_plot(
+    shap_values,
+    X_test_transformed[:100],
+    plot_type="bar",
+    feature_names=feature_names,
+    class_names=y_labels,
+    show=False,
+)
+plt.title("SHAP - Naive Bayes")
+plt.tight_layout()
+plt.savefig(
+    "results/naive_bayes/shap_summary_naive_bayes_bar.png", dpi=300, bbox_inches="tight"
+)
+
+print("Script complete ✅")
 # %%
