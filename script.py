@@ -15,21 +15,30 @@ from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_sp
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
-from ucimlrepo import fetch_ucirepo
 
 # %%
+from ucimlrepo import fetch_ucirepo
+
+# ssl._create_default_https_context = ssl._create_unverified_context
 
 # Load dataset
-dataset = fetch_ucirepo(id=544)
-if dataset is None:
-    print("Dataset not found")
-    exit()
+# dataset = fetch_ucirepo(id=544)
+# if dataset is None:
+#     print("Dataset not found")
+#     exit()
 
-# Split features and target
-X = dataset.data.features
-# Remove weight column from features
-X = X.drop(columns=["Weight"])
-y = dataset.data.targets
+
+# # Split features and target
+# X = dataset.data.features
+# # Remove weight column from features
+# X = X.drop(columns=["Weight"])
+# y = dataset.data.targets
+
+with open("data/X.csv", "r") as f:
+    X = pd.read_csv(f)
+with open("data/y.csv", "r") as f:
+    y = pd.read_csv(f)
+
 
 # %%
 # Rename columns to more descriptive and Pythonic names
@@ -378,8 +387,9 @@ explainer = shap.KernelExplainer(model_knn.predict_proba, X_sample)
 shap_values = explainer.shap_values(X_sample)
 
 # Plot SHAP summary
-shap.summary_plot(shap_values, X_sample, show=True)
-# need to improve this and add feature names and classes names
+# Add feature names from the pipeline
+feature_names = best_knn_model.named_steps["preprocessor"].get_feature_names_out()
+shap.summary_plot(shap_values, X_sample, feature_names=feature_names, show=True)
 
 ############################# End of KNN
 # %%
@@ -416,7 +426,8 @@ best_dt_model = dt_grid_search.best_estimator_
 # Get the best parameters
 # use cross validation
 # Perform cross-validation to get scores
-cv_scores = cross_val_score(
+
+dt_cv_scores = cross_val_score(
     best_dt_model,
     X_test,
     y_test.values.ravel(),
@@ -425,8 +436,21 @@ cv_scores = cross_val_score(
     n_jobs=-1,
 )
 # Print cross-validation results
-print(f"Cross-validation F1 scores: {cv_scores}")
-print(f"Mean cross-validation score: {cv_scores.mean()}")
+print(f"Cross-validation F1 scores: {dt_cv_scores}")
+print(f"Mean cross-validation score: {dt_cv_scores.mean()}")
+
+# Previsões e métricas
+y_pred_dt = best_dt_model.predict(X_test)
+y_pred_dt_str = pd.Series(y_pred_dt).map(inverse_mapping)
+
+cm_dt = confusion_matrix(y_test_str, y_pred_dt_str, labels=y_labels)
+disp_dt = ConfusionMatrixDisplay(confusion_matrix=cm_dt, display_labels=y_labels)
+disp_dt.plot(cmap="Oranges", xticks_rotation=45)
+plt.title("Confusion Matrix - Decision Tree")
+plt.show()
+
+print("\nClassification Report - Decision Tree:")
+print(classification_report(y_test_str, y_pred_dt_str))
 # %%
 # Create an inverse mapping to convert numeric predictions back to string labels.
 inverse_mapping = {
@@ -514,12 +538,14 @@ plt.show()
 # See the decision path for a few examples
 for idx in range(3):
     plt.figure(figsize=(12, 5))
+    feature_names_transformed = best_dt_model.named_steps[
+        "preprocessor"
+    ].get_feature_names_out()
     shap.decision_plot(
         explainer.expected_value,
-        shap_values[idx],
+        shap_values[0][idx],
         X_test_transformed[idx],
-        feature_display_range=slice(-1, -10, -1),
-        feature_names=X_test.columns,
+        feature_names=feature_names_transformed,
     )
     plt.title(f"Decision Path for Sample {idx}")
     plt.tight_layout()
