@@ -553,10 +553,17 @@ for idx in range(3):
 
 
 # %%
-# TODO
-# add gridsearch for parameters?
-# train with each model
-# add expaliner
+# Fixing pipelines to get a higher distribution and variance of class probabilities
+# This step improves model performance by making sure the categorical features
+# are encoded properly, considering the assumptions of the Naive Bayes model.
+
+# Pipeline for nominal features
+nominal_pipeline = Pipeline(
+    steps=[("imputer", categorical_imputer), ("ordinal_encoder", nominal_encoder)]
+)
+
+# setup encoders for categoricals
+nominal_encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
 
 # %%
 
@@ -570,7 +577,7 @@ nb_pipeline = Pipeline(
 )
 # make grid search
 nb_grid = {
-    "classifier__var_smoothing": list(range(1, 10)) + [0.1, 0.01, 0.001],
+    "classifier__var_smoothing": [0.001, 0.01, 0.1, 1.0, 10.0],
 }
 # Create a GridSearchCV object
 nb_grid_search = GridSearchCV(
