@@ -269,7 +269,7 @@ for label, split in zip(["Train", "Test"], [y_train, y_test]):
     print(f"\n{label} target distribution:")
     print(split["obesity_level"].value_counts(normalize=True).round(3))
 # %%
-## KNN
+########################### KNN
 
 
 # Create a pipeline with preprocessing and KNN classifier
@@ -306,10 +306,7 @@ print("Best cross-validated training score (F1 macro):", knn_grid_search.best_sc
 
 best_knn_model = knn_grid_search.best_estimator_
 # Get the best parameters
-
 # use cross validation
-
-
 # Perform cross-validation to get scores
 cv_scores = cross_val_score(
     best_knn_model,
@@ -382,9 +379,128 @@ shap_values = explainer.shap_values(X_sample)
 # Plot SHAP summary
 shap.summary_plot(shap_values, X_sample, show=True)
 
+############################# End of KNN
+# %%
+############################### Decision Tree
+from sklearn.tree import DecisionTreeClassifier
+# Create a pipeline with preprocessing and Decision Tree classifier
+dt_pipeline = Pipeline(
+    steps=[("preprocessor", preprocessor), ("classifier", DecisionTreeClassifier())]
+) 
+
+# make grid search
+dt_grid = {
+    "classifier__criterion": ["gini", "entropy", "log_loss", "squared_error"],
+    "classifier__splitter": ["best"],
+    "classifier__max_depth": [None, 3, 5, 7, 9, 15],
+    "classifier__min_samples_split": [2, 5, 10],
+}
+
+# Create a GridSearchCV object
+dt_grid_search = GridSearchCV(
+    dt_pipeline,
+    param_grid=dt_grid,
+    scoring=["f1_macro"],
+    cv=10,  # simulate LOOCV
+    verbose=1,
+    n_jobs=-1,
+)
+
+dt_grid_search.fit(X_train, y_train.values.ravel())
+print("Best parameters:", dt_grid_search.best_params_)
+print("Best cross-validated training score (F1 macro):", dt_grid_search.best_score_)
+best_dt_model = dt_grid_search.best_estimator_
+# Get the best parameters
+# use cross validation
+# Perform cross-validation to get scores
+cv_scores = cross_val_score(
+    best_dt_model,
+    X_test,
+    y_test.values.ravel(),
+    cv=10,  # 10 fold to simualte LOOCV
+    scoring="f1_macro",
+    n_jobs=-1,
+)
+# Print cross-validation results
+print(f"Cross-validation F1 scores: {cv_scores}")
+print(f"Mean cross-validation score: {cv_scores.mean()}")
+
+# Create an inverse mapping to convert numeric predictions back to string labels.
+inverse_mapping = {
+    -1: "Insufficient_Weight",
+    0: "Normal_Weight",
+    1: "Overweight_Level_I",
+    2: "Overweight_Level_II",
+    3: "Obesity_Type_I",
+    4: "Obesity_Type_II",
+    5: "Obesity_Type_III",
+}
+# Convert y_test to string labels
+y_test_str = y_test["obesity_level"].map(inverse_mapping)
+# Make predictions on the test set
+y_pred = best_dt_model.predict(X_test)
+y_pred_str = pd.Series(y_pred).map(inverse_mapping)
+# Define the string labels for display
+
+y_labels = [
+    "Insufficient_Weight",
+    "Normal_Weight",
+    "Overweight_Level_I",
+    "Overweight_Level_II",
+    "Obesity_Type_I",
+    "Obesity_Type_II",
+    "Obesity_Type_III",
+]
+# === Confusion Matrix ===
+cm = confusion_matrix(y_test_str, y_pred_str, labels=y_labels)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=y_labels)
+disp.plot(cmap="Blues", xticks_rotation=45)
+plt.title("Confusion Matrix")
+plt.show()
+# Classification report for precision/recall/F1 per class
+print("\nClassification Report:")
+print(classification_report(y_test_str, y_pred_str))
+
+
+# === SHAP EXPLAINER ===
+
+# Extract the model and the preprocessed data
+X_test_transformed = best_dt_model.named_steps["preprocessor"].transform(X_test)
+model_dt = best_dt_model.named_steps["classifier"]
+ 
+# SHAP explainer for Decision Trees
+# For tree models, we can use TreeExplainer which is more efficient
+explainer = shap.TreeExplainer(model_dt)
+shap_values = explainer.shap_values(X_test_transformed)
+
+# Plot SHAP summary
+plt.figure(figsize=(12, 8))
+shap.summary_plot(shap_values, X_test_transformed, plot_type="bar", show=False)
+plt.title("Feature Importance (SHAP Values) - Decision Tree")
+plt.tight_layout()
+plt.show()
+
+# Plot detailed SHAP summary showing direction of impact
+plt.figure(figsize=(12, 10))
+shap.summary_plot(shap_values, X_test_transformed, show=False)
+plt.title("SHAP Summary Plot - Decision Tree")
+plt.tight_layout()
+plt.show()
+
+# See the decision path for a few examples
+for idx in range(3):
+    plt.figure(figsize=(12, 5))
+    shap.decision_plot(explainer.expected_value, shap_values[idx], X_test_transformed[idx], 
+                       feature_display_range=slice(-1, -10, -1))
+    plt.title(f"Decision Path for Sample {idx}")
+    plt.tight_layout()
+    plt.show()
+
 
 # %%
 # TODO
 # add gridsearch for parameters?
 # train with each model
 # add expaliner
+
+# %%
