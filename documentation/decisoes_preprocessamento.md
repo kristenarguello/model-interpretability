@@ -1,74 +1,74 @@
-## feature columns
+## Colunas de características (features)
 
-- gender  
-    categorical (nominal)  
-    Values: Male, Female  
+- **gender**  
+  categórica (nominal)  
+  Valores: Masculino, Feminino  
 
-- age  
-    numerical (float)  
-    Rounded to nearest integer to represent completed years — avoids unnecessary model sensitivity to decimals (e.g., 20.7 vs 21.3).  
-    Converted to float to maintain consistency in dtype.
+- **age**  
+  numérica (float)  
+  Arredondada para o inteiro mais próximo para representar anos completos — evita sensibilidade desnecessária do modelo a decimais (ex: 20.7 vs 21.3).  
+  Convertida para float para manter a consistência no tipo de dado.
 
-- height  
-    numerical (float)  
-    Rounded to 2 decimal places to reduce noise and avoid excessive granularity.
+- **height**  
+  numérica (float)  
+  Arredondada para 2 casas decimais para reduzir ruído e evitar granularidade excessiva.
 
-- weight  
-    numerical (float)  
-    Rounded to 2 decimal places for the same reason as height — cleaner input for the model.
+- **weight**  
+  numérica (float)  
+  Arredondada para 2 casas decimais pelo mesmo motivo da altura — entrada mais limpa para o modelo.
 
-- family_history_overweight  
-    categorical (nominal)  
-    Binary yes/no feature — converted to categorical dtype.
+- **family_history_overweight**  
+  categórica (nominal)  
+  Variável binária sim/não — convertida para tipo categórico.
 
-- high_caloric_food  
-    categorical (nominal)  
-    Indicates whether the person frequently consumes high-caloric food — treated as a nominal category.
+- **high_caloric_food**  
+  categórica (nominal)  
+  Indica se a pessoa consome frequentemente alimentos altamente calóricos — tratada como categoria nominal.
 
-- freqof_vegetables  
-    categorical (ordinal)  
-    Frequency of vegetable consumption — has a natural order (e.g., never < sometimes < always).
+- **freqof_vegetables**  
+  categórica (ordinal)  
+  Frequência do consumo de vegetais — possui uma ordem natural (ex: nunca < às vezes < sempre).
 
-- number_of_main_meals  
-    numerical (discrete, ratio-type)  
-    Number of main meals per day — treated as numeric since the range is relatively wide and meaningful numerically.  
-    Rounded and stored as float.
+- **number_of_main_meals**  
+  numérica (discreta, do tipo razão)  
+  Número de refeições principais por dia — tratada como numérica já que a faixa é relativamente ampla e numericamente significativa.  
+  Arredondada e armazenada como float.
 
-- food_between_meals  
-    categorical (ordinal)  
-    Describes snacking frequency — has a natural order (e.g., never < sometimes < frequently).
+- **food_between_meals**  
+  categórica (ordinal)  
+  Descreve a frequência de lanches entre as refeições — possui ordem natural (ex: nunca < às vezes < frequentemente).
 
-- smoking  
-    categorical (nominal)  
-    Binary yes/no variable — treated as nominal category.
+- **smoking**  
+  categórica (nominal)  
+  Variável binária sim/não — tratada como categoria nominal.
 
-- water_intake  
-    categorical (ordinal)  
-    Frequency of daily water consumption — values have a clear progression.
+- **water_intake**  
+  categórica (ordinal)  
+  Frequência de consumo diário de água — os valores têm uma progressão clara.
 
-- calories_monitoring  
-    categorical (nominal)  
-    Binary feature indicating whether the person monitors their caloric intake — treated as nominal.
+- **calories_monitoring**  
+  categórica (nominal)  
+  Variável binária que indica se a pessoa monitora a ingestão calórica — tratada como nominal.
 
-- freq_physical_activity  
-    categorical (ordinal)  
-    Ordered levels of physical activity frequency — higher value = more activity.
+- **freq_physical_activity**  
+  categórica (ordinal)  
+  Níveis ordenados de frequência de atividade física — valor maior = mais atividade.
 
-- time_using_technology  
-    categorical (ordinal)  
-    Time spent on electronic devices — more time implies more sedentary behavior, hence treated as ordinal.
+- **time_using_technology**  
+  categórica (ordinal)  
+  Tempo gasto em dispositivos eletrônicos — mais tempo implica comportamento mais sedentário, portanto tratada como ordinal.
 
-- alcohol_consumption  
-    categorical (ordinal)  
-    Frequency of alcohol consumption — naturally ordered (e.g., never < sometimes < frequently).
+- **alcohol_consumption**  
+  categórica (ordinal)  
+  Frequência de consumo de álcool — ordenação natural (ex: nunca < às vezes < frequentemente).
 
-- transportation_type  
-    categorical (nominal)  
-    Describes the main mode of transport (e.g., walking, public transport, car) — nominal without order.
+- **transportation_type**  
+  categórica (nominal)  
+  Descreve o principal modo de transporte (ex: caminhada, transporte público, carro) — nominal, sem ordem.
 
-## target column
+## Coluna alvo (target)
 
-- obesity_level  
-    categorical (ordinal)  
-    Mapped to integers to reflect increasing severity:  
-    `Insufficient_Weight = -1`, `Normal_Weight = 0`, ..., `Obesity_Type_III = 5`.
+- **obesity_level**  
+  categórica (ordinal)  
+  Mapeada para inteiros para refletir a gravidade crescente:  
+  `Insufficient_Weight = -1`, `Normal_Weight = 0`, ..., `Obesity_Type_III = 5`.
