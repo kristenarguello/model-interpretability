@@ -14,26 +14,34 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_split
+from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.naive_bayes import GaussianNB
 
 # UCI dataset loader
 from ucimlrepo import fetch_ucirepo
 
 # %%
 # === LOAD DATASET ===
-print("Fetching dataset...")
-dataset = fetch_ucirepo(id=544)
-if dataset is None:
-    print("Dataset not found")
-    exit()
+print("Loading dataset from local files...")
+try:
+    # Load features and target from local CSV files
+    with open("data/X.csv", "r") as f:
+        X = pd.read_csv(f)
+    with open("data/y.csv", "r") as f:
+        y = pd.read_csv(f)
+    print(f"Successfully loaded data: {X.shape[0]} samples with {X.shape[1]} features")
+except FileNotFoundError as e:
+    print("You dont have the dataset localy, Fetching dataset...")
+    dataset = fetch_ucirepo(id=544)
+    if dataset is None:
+        print("Dataset not found")
+        exit()
 
-# Split features and target
-X = dataset.data.features
-y = dataset.data.targets
+    X = dataset.data.features
+    y = dataset.data.targets
 
 # %%
 # === RENAME COLUMNS FOR CLARITY ===
@@ -229,7 +237,8 @@ X_sample = shap.sample(X_test_transformed, 100, random_state=42)
 explainer = shap.KernelExplainer(model_knn.predict_proba, X_sample)
 shap_values = explainer.shap_values(X_sample)
 feature_names = best_knn_model.named_steps["preprocessor"].get_feature_names_out()
-plt.figure(figsize=(12, 8))
+# %%
+plt.figure(figsize=(15, 12))
 shap.summary_plot(
     shap_values,
     X_sample,
@@ -237,10 +246,11 @@ shap.summary_plot(
     feature_names=feature_names,
     class_names=y_labels,
     show=False,
+    plot_size=(15, 12),
 )
 plt.title("SHAP - KNN")
 plt.tight_layout()
-plt.savefig("results/knn/shap_summary_knn.png", dpi=300, bbox_inches="tight")
+plt.savefig("results/knn/shap_summary_knn.png", dpi=400, bbox_inches="tight")
 
 # %%
 # === DECISION TREE CLASSIFIER ===
@@ -291,7 +301,7 @@ model_dt = best_dt_model.named_steps["classifier"]
 explainer = shap.TreeExplainer(model_dt)
 shap_values = explainer.shap_values(X_test_transformed)
 
-plt.figure(figsize=(12, 8))
+plt.figure(figsize=(15, 12))
 shap.summary_plot(
     shap_values,
     X_test_transformed,
@@ -299,6 +309,7 @@ shap.summary_plot(
     feature_names=feature_names,
     class_names=y_labels,
     show=False,
+    plot_size=(15, 12),
 )
 plt.title("SHAP - Decision Tree")
 plt.tight_layout()
@@ -354,7 +365,7 @@ explainer = shap.KernelExplainer(
 )
 shap_values = explainer.shap_values(X_test_transformed[:100])
 
-plt.figure(figsize=(12, 8))
+plt.figure(figsize=(15, 12))
 shap.summary_plot(
     shap_values,
     X_test_transformed[:100],
@@ -362,6 +373,7 @@ shap.summary_plot(
     feature_names=feature_names,
     class_names=y_labels,
     show=False,
+    plot_size=(15, 12),
 )
 plt.title("SHAP - Naive Bayes")
 plt.tight_layout()
