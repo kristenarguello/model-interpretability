@@ -318,6 +318,25 @@ plt.savefig(
     dpi=300,
     bbox_inches="tight",
 )
+# %%
+# print("Visualizing Decision Tree structure...")
+
+# plt.figure(figsize=(20, 10))
+# tree.plot_tree(
+#     model_dt,
+#     feature_names=feature_names,
+#     class_names=y_labels,
+#     filled=True,
+#     rounded=True,
+#     fontsize=10,
+# )
+# plt.title("Decision Tree Structure")
+# plt.savefig(
+#     "results/decision_tree/decision_tree_structure.png", dpi=300, bbox_inches="tight"
+# )
+# # plt.show()
+# plt.close()
+
 
 # %%
 # === NAIVE BAYES CLASSIFIER ===

@@ -50,24 +50,19 @@ Principais erros: tendência de confundir “Normal Weight” com “Overweight 
 
 ## Interpretabilidade Modelo a Modelo 
 
-Decision Tree
+Para cada modelo (Decision Tree, Naïve Bayes e KNN), apresentar:
 
-Mostre o grafo simplificado (ou destaque nós).
+Matriz de Confusão
 
-Features mais importantes no topo (peso, altura, idade).
+Mostrar a heatmap da confusão.
 
-Naïve Bayes
+Aponte rapidamente os maiores erros (ex.: “Normal Weight → Overweight I”).
 
-Explique as probabilidades condicionais de duas ou três features chave.
+SHAP Summary Plot
 
-Limitação: não capta correlações (dificulta separar classes próximas).
+Apresente o gráfico de barras (ou summary plot) com as top 5 features.
 
-KNN + SHAP/LIME
-
-Demonstre um exemplo de explicação com SHAP (gráfico de barras para uma instância).
-
-A dificuldade “pura” do KNN e como SHAP ajuda a entender quais pontos vizinhos influenciam mais.
-
+Destaque se aparecem vieses inesperados (ex.: gênero, idade).
 ## Comparação Geral e Lições 
 
 Facilidade de interpretação:
