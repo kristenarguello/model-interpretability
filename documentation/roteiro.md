@@ -64,11 +64,6 @@ Porém, classes intermediárias como Normal_Weight (56% de recall) e Overweight_
 “Aqui, gender_Male, age e height são as três features de maior impacto médio.
 Gênero não faz parte do IMC, mas o modelo usa esse viés populacional para diferenciar instâncias quando peso e altura não bastam.”
 
-“Decision Tree – SHAP Dot Plot”
-
-- Mostrar o dot plot.
-
-“Pontos vermelhos em age indicam que idades maiores empurram a predição para obesidades mais graves; valores azuis reduzem essa probabilidade.”
 
 ### Naïve Bayes
 “Naïve Bayes – Matriz de Confusão”
@@ -85,11 +80,6 @@ A maioria das instâncias acaba sendo ‘empurrada’ para Obesity_Type_II, devi
 “Gênero (Male/Female) e histórico familiar aparecem no topo, enquanto height quase some.
 Isso mostra que o NB favorece categorias binárias quando as distribuições contínuas se sobrepõem.”
 
-“Naïve Bayes – SHAP Dot Plot”
-
-- Mostrar dot plot.
-
-“Os valores de SHAP ficam bem próximos de zero e misturados, indicando explicações fracas e inconsistentes entre instâncias.”
 
 ### K‑Nearest Neighbors (KNN)
 “KNN – Matriz de Confusão”
