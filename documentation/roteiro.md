@@ -40,8 +40,6 @@ Métricas usadas: acurácia, precisão, recall, F1‑score e matriz de confusão
 
 ## Resultados de Desempenho 
 
-Tabela/resumo rápido:
-
 Melhor acurácia: KNN (~X%)
 
 Pior desempenho: Naïve Bayes (~Y%), devido à suposição de independência.
@@ -50,34 +48,63 @@ Principais erros: tendência de confundir “Normal Weight” com “Overweight 
 
 ## Interpretabilidade Modelo a Modelo 
 
-Para cada modelo (Decision Tree, Naïve Bayes e KNN), apresentar:
+### Decision Tree
+“Decision Tree – Matriz de Confusão”
 
-Matriz de Confusão
+- Mostrar a heatmap da confusão.
 
-Mostrar a heatmap da confusão.
 
-Aponte rapidamente os maiores erros (ex.: “Normal Weight → Overweight I”).
+“Na diagonal vemos que o modelo acerta quase 100% em Obesity_Type_III e ~87% em Insufficient_Weight.
+Porém, classes intermediárias como Normal_Weight (56% de recall) e Overweight_Level_I (67%) são frequentemente confundidas umas com as outras.”
 
-SHAP Summary Plot
+“Decision Tree – SHAP Summary Plot”
 
-Apresente o gráfico de barras (ou summary plot) com as top 5 features.
+- Mostrar o gráfico de barras de SHAP.
 
-Destaque se aparecem vieses inesperados (ex.: gênero, idade).
-## Comparação Geral e Lições 
+“Aqui, gender_Male, age e height são as três features de maior impacto médio.
+Gênero não faz parte do IMC, mas o modelo usa esse viés populacional para diferenciar instâncias quando peso e altura não bastam.”
 
-Facilidade de interpretação:
+“Decision Tree – SHAP Dot Plot”
 
-Árvore (visual, regras),
+- Mostrar o dot plot.
 
-Naïve Bayes (fácil ver probabilidades),
+“Pontos vermelhos em age indicam que idades maiores empurram a predição para obesidades mais graves; valores azuis reduzem essa probabilidade.”
 
-KNN (sem explicação natural, depende de pós‑análise).
+### Naïve Bayes
+“Naïve Bayes – Matriz de Confusão”
 
-Limitações:
+- Mostrar a heatmap.
 
-Viéses inesperados (ex.: influência de gênero).
+“NB erra muito nas classes do meio: Normal_Weight acerta só ~24% e Overweight_Level_I ~26%.
+A maioria das instâncias acaba sendo ‘empurrada’ para Obesity_Type_II, devido à suposição de independência.”
 
-Trade‑off entre performance e transparência.
+“Naïve Bayes – SHAP Summary Plot”
+
+- Mostrar barras SHAP.
+
+“Gênero (Male/Female) e histórico familiar aparecem no topo, enquanto height quase some.
+Isso mostra que o NB favorece categorias binárias quando as distribuições contínuas se sobrepõem.”
+
+“Naïve Bayes – SHAP Dot Plot”
+
+- Mostrar dot plot.
+
+“Os valores de SHAP ficam bem próximos de zero e misturados, indicando explicações fracas e inconsistentes entre instâncias.”
+
+### K‑Nearest Neighbors (KNN)
+“KNN – Matriz de Confusão”
+
+- Mostrar a heatmap.
+
+“KNN funciona muito bem nos extremos (Insufficient e Obesity_Type_III com >87% de acerto), mas ainda confunde classes intermediárias: Normal_Weight e Overweight_Level_I.”
+
+“KNN – SHAP Summary Plot”
+
+- Mostrar barras SHAP.
+
+“height e age continuam sendo as top features, seguidas por frequência de vegetais e atividade física.
+SHAP nos permite entender quais variáveis influenciam cada previsão, algo que o KNN puro não oferece.”
+
 
 ## Conclusões e Próximos Passos (1min)
 
@@ -90,6 +117,6 @@ KNN foi mais acurado, Decision Tree mais intuitivo, NB o mais rápido porém men
 
 8. Encerramento 
 
-Agradecimento: “Obrigado pela atenção! Mais detalhes no código e no README.”
+Agradecimento: “Obrigado pela atenção! Mais detalhes no código e na documentacao”
 
 
