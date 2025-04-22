@@ -1,9 +1,3 @@
-falar e colocar cada matriz aqui e mostrar a diferenca de resultados dos modelos
-falar sobre a tendencia de errar o peso normal de todos os modelos....
-    apontar nas matrizes
-falar sobre como o naive bayes tem resultados mais ruins por que ele ignora a correlacao entre as features
-
-
 ## Análise das Matrizes de Confusão dos Modelos de Classificação
 Introdução
 Neste relatório, focamos na análise das matrizes de confusão dos modelos Naive Bayes, KNN e Decision Tree, aplicados a um conjunto de dados de obesidade. O objetivo é comparar o desempenho dos modelos e identificar padrões de erro, especialmente na classificação de "Peso Normal".
