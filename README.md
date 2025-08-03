@@ -47,10 +47,6 @@ Additionally, model-agnostic methods like **Permutation Feature Importance** and
 - Special focus was given to explaining how each model arrives at its predictions.
 - Reflections were made on the trade-off between accuracy and explainability in practical scenarios.
 
-## 🎥 Presentation
-
-A recorded presentation (10–15 min) summarizing the project and findings is available [here](#). *(Insert YouTube or video link in a real submission)*
-
 ## 🛠️ Tools & Libraries
 
 - Python
